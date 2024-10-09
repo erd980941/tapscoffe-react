@@ -1,10 +1,11 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { updateTable, addTable } from '../../services/tableService'; // Yeni tablo ekleme fonksiyonu
+import { updateTable, addTable, deleteTable } from '../../services/tableService';  // deleteTable fonksiyonunu ekliyoruz
 import { notifySuccess, notifyError } from '../../utils/notify';
 
-const TableModal = ({ isOpen, onClose, table, onUpdate }) => {
+const TableModal = ({ isOpen, onClose, table, onUpdate, onDelete }) => {
   const [tableName, setTableName] = useState(table.name);
+
   useEffect(() => {
     if (isOpen && table) {
       // Modal açıldığında, table.name değerini state'e set et
@@ -12,7 +13,7 @@ const TableModal = ({ isOpen, onClose, table, onUpdate }) => {
     }
   }, [isOpen, table]);
 
-  const isNewTable = table.id === null; // Yeni tablo olup olmadığını kontrol ediyoruz
+  const isNewTable = table.id === null;  // Yeni tablo olup olmadığını kontrol ediyoruz
 
   if (!isOpen) return null;
 
@@ -30,7 +31,7 @@ const TableModal = ({ isOpen, onClose, table, onUpdate }) => {
       }
 
       if (result && result.success) {
-        console.log(result.daa);
+        console.log(result.data);
         onUpdate({ ...table, ...result.data });
         notifySuccess(result.message);
         onClose();  // Modal'ı kapat
@@ -39,6 +40,23 @@ const TableModal = ({ isOpen, onClose, table, onUpdate }) => {
       }
     } catch (error) {
       notifyError('İşlem sırasında bir hata oluştu.');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (confirm("Bu tabloyu silmek istediğinize emin misiniz?")) {
+      try {
+        const result = await deleteTable(table.id);  // Silme işlemi
+        if (result && result.success) {
+          notifySuccess(result.message);
+          onDelete(table.id);  // Silinen tabloyu parent bileşene bildir
+          onClose();  // Modal'ı kapat
+        } else {
+          notifyError(result.message || 'Tablo silinemedi!');
+        }
+      } catch (error) {
+        notifyError('Tablo silinirken bir hata oluştu.');
+      }
     }
   };
 
@@ -58,6 +76,7 @@ const TableModal = ({ isOpen, onClose, table, onUpdate }) => {
               />
             </div>
             <div className="flex justify-end space-x-4">
+              {/* Save Butonu */}
               <button
                 type="button"
                 className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
@@ -65,13 +84,24 @@ const TableModal = ({ isOpen, onClose, table, onUpdate }) => {
               >
                 Save
               </button>
+              {/* Cancel Butonu - Sarı Renk */}
               <button
                 type="button"
-                className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded"
                 onClick={onClose}
               >
                 Cancel
               </button>
+              {/* Delete Butonu - Kırmızı Renk */}
+              {!isNewTable && (
+                <button
+                  type="button"
+                  className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                  onClick={handleDelete}
+                >
+                  Delete
+                </button>
+              )}
             </div>
           </form>
         </div>
