@@ -83,13 +83,7 @@ const TableClient = ({ tables }) => {
                         >
                           <FaEdit />
                         </button>
-                        {/* <button
-                          className="text-red-600 hover:text-red-800 focus:outline-none"
-                          title="Delete"
-                          onClick={() => handleTableDelete(table.id)}  // Silme işlemi tetikleniyor
-                        >
-                          <FaTrash />
-                        </button> */}
+                        
                       </div>
                     </td>
                   </tr>
