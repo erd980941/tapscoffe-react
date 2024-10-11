@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FaEdit, FaTrash, FaPlus } from 'react-icons/fa';  // FaPlus ikonunu ekliyoruz
+import { FaEdit, FaTrash, FaPlus } from 'react-icons/fa';  
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import TableModal from '../../_components/TableModal';
@@ -42,6 +42,11 @@ const TableClient = ({ tables }) => {
     }
   };
 
+  // Tablo silme fonksiyonu
+  const handleTableDelete = (deletedTableId) => {
+    setUpdatedTables((prevTables) => prevTables.filter(table => table.id !== deletedTableId));
+  };
+
   return (
     <div>
       <div className="mt-4">
@@ -78,12 +83,7 @@ const TableClient = ({ tables }) => {
                         >
                           <FaEdit />
                         </button>
-                        <button
-                          className="text-red-600 hover:text-red-800 focus:outline-none"
-                          title="Delete"
-                        >
-                          <FaTrash />
-                        </button>
+                        
                       </div>
                     </td>
                   </tr>
@@ -101,6 +101,7 @@ const TableClient = ({ tables }) => {
           onClose={handleCloseModal}
           table={selectedTable}
           onUpdate={handleTableUpdate} // Modal'dan güncellenen tabloyu al
+          onDelete={handleTableDelete} // Modal'dan silinen tabloyu al
         />
       )}
       
