@@ -31,7 +31,6 @@ const TableModal = ({ isOpen, onClose, table, onUpdate, onDelete }) => {
       }
 
       if (result && result.success) {
-        console.log(result.data);
         onUpdate({ ...table, ...result.data });
         notifySuccess(result.message);
         onClose();  // Modal'ı kapat

@@ -1,31 +1,27 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, act } from 'react';
 import { getProducts } from '../../services/productService';
 import { notifySuccess, notifyError } from '../../utils/notify';
+import { deleteOrderItems } from '../../services/orderItemService';
+import { addOrders, updateOrders, deleteOrders } from '../../services/orderService';
 
-const OrderProductModal = ({ isOpen, onClose, tableId, onOrderSubmit, activeOrder }) => {
+const OrderProductModal = ({ isOpen, onClose, tableId, onOrderSubmit, activeOrder, removeOrderItemsMenuClient }) => {
   const [products, setProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
-
+  const [orderItems, setOrderItems] = useState(activeOrder?.order_items || []);
   useEffect(() => {
     if (isOpen) {
       fetchProducts();
 
-      // Eğer active_order mevcutsa, sipariş kalemlerini seçili ürünler listesine ekleyelim
       if (activeOrder && activeOrder.order_items) {
-        const initialSelectedProducts = activeOrder.order_items.map(item => ({
-          product_id: item.product_id,
-          quantity: item.quantity,
-          price: item.price,
-          isExisting: true,  // Bu flag ile mevcut ürünleri yeşil renkte gösteririz
-        }));
-        setSelectedProducts(initialSelectedProducts);
+        setOrderItems(activeOrder.order_items);
       } else {
-        // Eğer active_order yoksa, yeni bir sipariş için ürünleri temizle
-        setSelectedProducts([]);
+        setOrderItems([]); // Eğer activeOrder yoksa, ürünleri temizle
       }
     }
   }, [isOpen, activeOrder]);
+
+  if (!isOpen) return null;
 
   const fetchProducts = async () => {
     try {
@@ -35,16 +31,12 @@ const OrderProductModal = ({ isOpen, onClose, tableId, onOrderSubmit, activeOrde
       notifyError('Bir hata oluştu.');
     }
   };
-
   const handleProductSelect = (product) => {
     setSelectedProducts((prevSelected) => {
-      const existingSelectedProduct = prevSelected.find((p) => p.product_id === product.id && p.isExisting === true);
-      const newSelectedProduct = prevSelected.find((p) => p.product_id === product.id && p.isExisting === false);
-
-      if (newSelectedProduct) {
-        // Eğer yeni eklenen (mavi) ürün zaten varsa, miktarını artırıyoruz
+      const existingSelectedProduct = prevSelected.find((p) => p.id === product.id);
+      if (existingSelectedProduct) {
         return prevSelected.map((p) =>
-          p.product_id === product.id && p.isExisting === false
+          p.id === product.id
             ? {
               ...p,
               quantity: p.quantity + 1,
@@ -52,38 +44,28 @@ const OrderProductModal = ({ isOpen, onClose, tableId, onOrderSubmit, activeOrde
             }
             : p
         );
-      } else if (existingSelectedProduct) {
-        // Eğer sipariş verilmiş (yeşil) ürün varsa, yeni bir tane daha ekliyoruz (mavi renkte)
-        return [
-          ...prevSelected,
-          {
-            product_id: product.id,
-            quantity: 1,
-            price: product.price,
-            isExisting: false,  // Yeni eklenen ürün mavi olacak
-          },
-        ];
       } else {
-        // Eğer ürün listede yoksa, yeni ürün olarak ekliyoruz
         return [
           ...prevSelected,
           {
-            product_id: product.id,
+            id: product.id,
             quantity: 1,
             price: product.price,
-            isExisting: false,  // Yeni eklenen ürün mavi olacak
+            type: product.type,
+            description: product.description
           },
         ];
       }
+
     });
   };
 
-  const removeProductFromOrder = (productId) => {
+  const removeProductFromSelectProduct = (productId) => {
     setSelectedProducts((prevSelected) => {
-      const product = prevSelected.find((p) => p.product_id === productId);
+      const product = prevSelected.find((p) => p.id === productId);
       if (product.quantity > 1) {
         return prevSelected.map((p) =>
-          p.product_id === productId
+          p.id === productId
             ? {
               ...p,
               quantity: p.quantity - 1,
@@ -92,28 +74,58 @@ const OrderProductModal = ({ isOpen, onClose, tableId, onOrderSubmit, activeOrde
             : p
         );
       } else {
-        return prevSelected.filter((p) => p.product_id !== productId);
+        return prevSelected.filter((p) => p.id !== productId);
       }
     });
   };
 
-  const handleOrderSubmit = async () => {
-    const newProducts = selectedProducts.filter(product => product.isExisting === false);
+  const removeOrderItems = async (orderItemId) => {
+    if (confirm("Bu siparişi silmek istediğinizden emin misiniz?")) {
+      const result = await deleteOrderItems(orderItemId);
+      if (result.success) {
+        notifySuccess(result.message);
+  
+        // Mevcut orderItems durumunu alın
+        const currentOrderItems = [...orderItems]; // orderItems state'inden geliyor olmalı
+  
+        // Güncellenmiş öğeleri filtreleyin
+        const updatedItems = currentOrderItems.filter(
+          (orderItem) => orderItem.id !== orderItemId
+        );
+  
+        // Durumu güncelleyin
+        setOrderItems(updatedItems);
+  
+        // Eğer güncellenmiş öğeler boşsa, siparişi silin
+        if (updatedItems.length === 0) {
+          const orderId = currentOrderItems[0]?.order_id;
+          if (orderId) {
+            const deleteResult = await deleteOrders(orderId);
+            
+          }
+        }
+  
+        removeOrderItemsMenuClient(orderItemId);
+      } else {
+        notifyError(result.message);
+      }
+    }
+  };
 
-    if (newProducts.length === 0) {
+  const handleOrderSubmit = async () => {
+
+    if (selectedProducts.length === 0) {
       notifyError('Lütfen en az bir ürün seçiniz.');
       return;
     }
 
-    const result = await onOrderSubmit(tableId, newProducts);
-
-    setSelectedProducts(result.data.order_items.map(item => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-      price: item.price,
-      isExisting: true  // Yeni eklenen tüm ürünler de artık mevcut (yeşil) olacaktır
-    })));  // Modal kapatılınca seçili ürünleri temizle
-    onClose();
+    const orderItems = selectedProducts.map(product => ({
+      product_id: product.id,
+      quantity: product.quantity,
+      price: product.price
+    }));
+    await onOrderSubmit(tableId, orderItems);
+    setSelectedProducts([]);
   };
 
   const handleClose = () => {
@@ -121,7 +133,7 @@ const OrderProductModal = ({ isOpen, onClose, tableId, onOrderSubmit, activeOrde
     onClose();  // Modalı kapat
   };
 
-  if (!isOpen) return null;
+
 
   return (
     <div className="fixed inset-0 z-50 overflow-auto bg-smoke-light flex">
@@ -151,19 +163,41 @@ const OrderProductModal = ({ isOpen, onClose, tableId, onOrderSubmit, activeOrde
           <div className="flex flex-wrap gap-4">
             {selectedProducts.length > 0 ? (
               selectedProducts.map((product, index) => (
-                <div key={`${product.product_id}-${product.isExisting}-${index}`} className={`border rounded-lg p-4 flex items-center justify-between w-full ${product.isExisting ? 'bg-green-100' : 'bg-blue-100'}`}>
+                <div key={`${product.id}-${index}`} className="border rounded-lg p-4 flex items-center justify-between w-full bg-green-100">
                   <div>
-                    <div className="text-lg font-semibold">Ürün ID: {product.product_id}</div>
+                    <div className="text-lg font-semibold">Ürün Adı: {product.name}</div>
                     <div className="text-gray-600">Adet: {product.quantity}</div>
                     <div className="text-gray-600">Toplam Fiyat: {product.price} TL</div>
                   </div>
-                  <button className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-700 ml-4" onClick={() => removeProductFromOrder(product.product_id)}>
-                    {product.quantity > 1 ? 'Adet azalt' : 'X'}
+                  <button className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-700 ml-4" onClick={() => removeProductFromSelectProduct(product.id)}>
+                    X
                   </button>
                 </div>
               ))
             ) : (
               <p>Henüz ürün seçilmedi.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <h3 className="text-xl mb-2">Siparişler</h3>
+          <div className="flex flex-wrap gap-4">
+            {orderItems.length > 0 ? (
+              orderItems.map((orderItem, index) => (
+                <div key={`${orderItem.product_id}-${index}`} className="border rounded-lg p-4 flex items-center justify-between w-full bg-blue-100">
+                  <div>
+                    <div className="text-lg font-semibold">Ürün Adı: {orderItem.product.name}</div>
+                    <div className="text-gray-600">Adet: {orderItem.quantity}</div>
+                    <div className="text-gray-600">Toplam Fiyat: {orderItem.price} TL</div>
+                  </div>
+                  <button className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-700 ml-4" onClick={() => removeOrderItems(orderItem.id)}>
+                    X
+                  </button>
+                </div>
+              ))
+            ) : (
+              <p>Henüz sipariş verilmedi.</p>
             )}
           </div>
         </div>

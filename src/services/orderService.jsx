@@ -37,3 +37,12 @@ export const addOrders = async (newOrdersData) => {
   const response = await post('/orders', newOrdersData);
   return response;
 };
+export const updateTableStatus = async (tableId, status) => {
+  try {
+    const response = await put(`/tables/${tableId}`, { status });
+    return response.data;
+  } catch (error) {
+    console.error("Tablo durumu güncellenemedi", error);
+    return { success: false, message: "Tablo güncellenemedi." };
+  }
+};

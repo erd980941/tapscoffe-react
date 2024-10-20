@@ -12,6 +12,7 @@ const MenuClient = ({ tables: initialTables }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedTable, setSelectedTable] = useState(null);
 
+
     const openModal = (table) => {
         setSelectedTable(table);
         setIsModalOpen(true);
@@ -21,52 +22,50 @@ const MenuClient = ({ tables: initialTables }) => {
         setIsModalOpen(false);
     };
 
-    const handleOrderSubmit = async (tableId, products) => {
-        const orderItems = products.map((product) => ({
-            product_id: product.product_id,
-            quantity: product.quantity,
-            price: product.price,
-        }));
-
+    const handleOrderSubmit = async (tableId, orderItems) => {
         const orderData = { table_id: tableId, order_items: orderItems };
 
-        let result;
-        try {
-            if (selectedTable.active_order) {
-                // Eğer aktif sipariş varsa, güncelleme işlemi
-                result = await updateOrders(selectedTable.active_order.id, orderData);
-                console.log('Sipariş güncellendi:', result);
-                if (result.success) {
-                    notifySuccess('Sipariş başarıyla güncellendi!');
-                } else {
-                    notifyError('Sipariş Güncellenemedi!');
-                }
+        let result
+        if (selectedTable?.active_order) {
+            result = await updateOrders(selectedTable.active_order.id, orderData);
+            if (result.success) {
+                notifySuccess('Sipariş başarıyla güncellendi!');
             } else {
-                // Yeni sipariş ekleme
-                result = await addOrders(orderData);
-                console.log('Yeni sipariş oluşturuldu:', result);
-                if (result.success) {
-                    notifySuccess('Sipariş başarıyla oluşturuldu!');
-                } else {
-                    notifyError('Sipariş Oluşturulamadı!');
-                }
+                notifyError('Sipariş Güncellenemedi!');
             }
-
-            // Sipariş başarılıysa tabloyu güncelle
-            if (result.success && result.data) {
-                updateTableStatus(result.data);
+        } else {
+            result = await addOrders(orderData);
+            if (result.success) {
+                notifySuccess('Sipariş başarıyla oluşturuldu!');
+            } else {
+                notifyError('Sipariş Oluşturulamadı!');
             }
-        } catch (error) {
-            console.error('Sipariş işlemi sırasında hata:', error);
         }
-        finally{
-            closeModal();
-            return result;
+    
+        if (result.success && result.data) {
+            updateTableStatus(result.data); // Yeni tablo durumunu güncelle
         }
-
-        
+    
+        closeModal();
+        return result;
     };
-
+    const handleRemoveOrderItems = (orderItemId) => {
+        setTables((prevTables) =>
+            prevTables.map((table) =>
+                table.active_order
+                    ? {
+                        ...table,
+                        active_order: {
+                            ...table.active_order,
+                            order_items: table.active_order.order_items.filter(
+                                (item) => item.id !== orderItemId
+                            ),
+                        },
+                    }
+                    : table // Eğer active_order yoksa tabloyu aynen döndür
+            )
+        );
+    };
     // Tablo durumunu güncelleyen fonksiyon
     const updateTableStatus = (updatedTable) => {
         setTables((prevTables) =>
@@ -113,6 +112,7 @@ const MenuClient = ({ tables: initialTables }) => {
                 tableId={selectedTable?.id}
                 activeOrder={selectedTable?.active_order}  // Aktif sipariş bilgisi gönderiliyor
                 onOrderSubmit={handleOrderSubmit}
+                removeOrderItemsMenuClient={handleRemoveOrderItems}
             />
         </div>
     );
