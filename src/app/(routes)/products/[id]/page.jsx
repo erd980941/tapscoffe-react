@@ -42,7 +42,6 @@ const ProductDetails = ({ params }) => {
     try {
       const result = await updateProduct(params.id, updatedProduct);
       if (result && result.success) {
-        console.log(result);
         notifySuccess(result.message);
       } else {
         notifyError('Ürün güncellenemedi');

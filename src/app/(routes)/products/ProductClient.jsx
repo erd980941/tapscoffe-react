@@ -30,7 +30,6 @@ const ProductClient = ({ products }) => {
     if (confirm("Bu ürünü silmek istediğinizden emin misiniz?")) {
       try {
         const result = await deleteProduct(productId); // Ürünü silme işlemi
-        console.log(result);
         if (result && result.success) {
           setUpdatedProducts((prevProducts) =>
             prevProducts.filter((product) => product.id !== productId)
